@@ -3,101 +3,124 @@
 # -------------------------------------------------------------
 import os
 import sys
-from src.exception import CustomException   # Custom exception handler
-from src.logger import logging              # Custom logging utility
-import pandas as pd                         # For data manipulation
-from sklearn.model_selection import train_test_split  # For splitting dataset
-from dataclasses import dataclass           # For clean configuration management
-
+from src.exception import CustomException   # Handles exceptions across the project
+from src.logger import logging              # Custom logging for monitoring pipeline steps
+import pandas as pd                         # For data manipulation and CSV reading
+from sklearn.model_selection import train_test_split  # To split data into train/test
+from dataclasses import dataclass           # For clean configuration of file paths
+from src.components.data_transformation import DataTransformation, DataTransformationConfig
+from src.components.model_trainer import ModelTrainer, ModelTrainerConfig
 
 # -------------------------------------------------------------
 # Data Configuration Class
 # -------------------------------------------------------------
-# Purpose:
-#   This dataclass holds file path configurations for storing
-#   training, testing, and raw data. It centralizes path handling
-#   and ensures consistency across the pipeline.
-# -------------------------------------------------------------
 @dataclass
 class DataIngestionConfig:
+    """
+    Stores file paths for saving ingested data.
+
+    Attributes
+    ----------
+    train_data_path : str
+        File path to save the training dataset.
+    test_data_path : str
+        File path to save the testing dataset.
+    raw_data_path : str
+        File path to save the original raw dataset.
+    """
     train_data_path: str = os.path.join('artifacts', 'train.csv')
     test_data_path: str = os.path.join('artifacts', 'test.csv')
     raw_data_path: str = os.path.join('artifacts', 'data.csv')
 
-
 # -------------------------------------------------------------
 # Data Ingestion Class
 # -------------------------------------------------------------
-# Purpose:
-#   This class handles reading the dataset, performing the
-#   train-test split, and saving the results to designated paths.
-# -------------------------------------------------------------
 class DataIngestion:
+    """
+    Handles data ingestion: reads raw dataset, performs train-test split,
+    and saves datasets to the artifact directory.
+    """
     def __init__(self):
-        # Initialize the configuration object with default paths
+        # Initialize configuration paths for data saving
         self.ingestion_config = DataIngestionConfig()
 
     # ---------------------------------------------------------
     # Method: initiate_data_ingestion
     # ---------------------------------------------------------
-    # Purpose:
-    #   Reads raw data, saves a copy, performs train-test split,
-    #   and stores split data in artifact directories.
-    #
-    # Returns:
-    #   Tuple (train_data_path, test_data_path)
-    #
-    # Exceptions:
-    #   Raises CustomException for any file I/O or data issues.
-    # ---------------------------------------------------------
     def initiate_data_ingestion(self):
-        logging.info("Entered the data ingestion method or component")
+        """
+        Reads raw data, saves a backup, performs train-test split,
+        and stores resulting datasets.
+
+        Returns
+        -------
+        tuple
+            Paths to train and test datasets.
+
+        Raises
+        ------
+        CustomException
+            Wraps any file I/O or processing error.
+        """
+        logging.info("Entered the data ingestion component")
 
         try:
-            # 1. Read dataset from source CSV
-            df = pd.read_csv(r'notebook\data\stud.csv') # this line can be changed to read from any source
+            # Step 1: Read raw CSV dataset
+            df = pd.read_csv(r'notebook\data\stud.csv')  # Update path if needed
             logging.info('Dataset successfully read into DataFrame')
 
-            # 2. Ensure the artifact directory exists
+            # Step 2: Ensure artifacts directory exists
             os.makedirs(
                 os.path.dirname(self.ingestion_config.train_data_path),
                 exist_ok=True
             )
 
-            # 3. Save raw data as a backup in artifacts folder
+            # Step 3: Save a raw backup copy
             df.to_csv(self.ingestion_config.raw_data_path, index=False, header=True)
             logging.info("Raw data saved successfully")
 
-            # 4. Perform train-test split (80-20)
+            # Step 4: Perform train-test split (80% train, 20% test)
             logging.info("Initiating train-test split")
             train_set, test_set = train_test_split(df, test_size=0.2, random_state=42)
 
-            # 5. Save split datasets to artifacts
+            # Step 5: Save train/test datasets to artifacts
             train_set.to_csv(self.ingestion_config.train_data_path, index=False, header=True)
             test_set.to_csv(self.ingestion_config.test_data_path, index=False, header=True)
-            logging.info("Train and test data saved successfully")
+            logging.info("Train and test datasets saved successfully")
 
-            # 6. Log completion and return file paths
+            # Step 6: Log completion and return paths
             logging.info("Data ingestion process completed successfully")
-
             return (
                 self.ingestion_config.train_data_path,
                 self.ingestion_config.test_data_path
             )
 
         except Exception as e:
-            # Wrap and raise any exception using the custom handler
+            # Use custom exception for detailed error trace
             raise CustomException(e, sys)
-
 
 # -------------------------------------------------------------
 # Script Entry Point
 # -------------------------------------------------------------
-# Purpose:
-#   Executes data ingestion as a standalone module.
-# -------------------------------------------------------------
 if __name__ == '__main__':
+    """
+    Executes the data ingestion pipeline when run directly.
+    After ingestion, it triggers data transformation and model training.
+    """
+    # 1. Perform data ingestion
     obj = DataIngestion()
-    obj.initiate_data_ingestion()
+    train_data, test_data = obj.initiate_data_ingestion()
 
-# Run on terminal using 'python -m src.components.data_ingestion'
+    # 2. Transform data for model training
+    data_transformation = DataTransformation()
+    train_arr, test_arr, _ = data_transformation.initiate_data_transformation(train_data, test_data)
+
+    # 3. Train models and print the R^2 score of the best model
+    modeltrainer = ModelTrainer()
+    print(modeltrainer.initiate_model_trainer(train_arr, test_arr))
+
+# -------------------------------------------------------------
+# How to Run
+# -------------------------------------------------------------
+# In terminal:
+# python -m src.components.data_ingestion
