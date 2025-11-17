@@ -52,7 +52,7 @@ class DataTransformation:
             cat_pipeline = Pipeline(
                 steps=[
                     ("imputer", SimpleImputer(strategy='most_frequent')),  # Fill missing categorical values with most frequent
-                    ("one_hot_encoder", OneHotEncoder()),                  # Encode categorical variables
+                    ("one_hot_encoder", OneHotEncoder(handle_unknown="ignore")),                  # Encode categorical variables
                     ("scale", StandardScaler(with_mean=False))             # Scale encoded values (with_mean=False for sparse matrices)
                 ]
             )
